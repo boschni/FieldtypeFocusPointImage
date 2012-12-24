@@ -33,7 +33,7 @@ class FieldtypeFocusPointImage extends FieldtypeImage {
 		$pageimage = $event->object;
 		$width = $event->arguments[0];
 		$height = $event->arguments[1];
-		$options = $event->arguments[2];
+		$options = isset($event->arguments[2]) ? $event->arguments[2] : array();
 
 		if ( ! is_array($options)) {
 			if (is_string($options)) {
