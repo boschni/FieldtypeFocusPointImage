@@ -1,0 +1,148 @@
+<?php
+
+/**
+ * ProcessWire Image Inputfield With Focus Point
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2012 by Niek Bosch
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.demediafabriek.nl
+ *
+ */
+class InputfieldFocusPointImage extends InputfieldImage {
+
+	public static function getModuleInfo() {
+
+		return array(
+			'title' => __('Images with focus point', __FILE__),
+			'summary' => __('One or more image uploads (sortable) with focus point', __FILE__),
+			'version' => 100,
+			'requires' => 'FieldtypeFocusPointImage'
+		);
+	}
+
+	public function init() {
+
+		parent::init();
+		$this->set('defaultFocusPointX', 50);
+		$this->set('defaultFocusPointY', 50);
+		$this->set('itemClass', 'InputfieldFile InputfieldImage InputfieldFocusPointImage ui-widget');
+	}
+
+	public function ___render() {
+		$this->config->scripts->add($this->config->urls->InputfieldFocusPointImage . 'InputfieldFocusPointImage.js');
+		$this->config->styles->add($this->config->urls->InputfieldFocusPointImage . 'InputfieldFocusPointImage.css');
+		return parent::___render();
+	}
+
+	protected function ___fileAdded(Pagefile $pagefile) {
+
+		if ($pagefile->focus_point_x === null) {
+			$pagefile->focus_point_x = (int) $this->defaultFocusPointX;
+		}
+
+		if ($pagefile->focus_point_y === null) {
+			$pagefile->focus_point_y = (int) $this->defaultFocusPointY;
+		}
+
+		return parent::___fileAdded($pagefile);
+	}
+
+	protected function ___renderItem($pagefile, $id, $n) {
+
+		$thumb = $pagefile;
+
+		if($this->adminThumbs && $thumb->height > $this->adminThumbHeight) {
+			// create a variation for display with this inputfield
+			$thumb = $thumb->height($this->adminThumbHeight);
+		}
+
+		$out = 	"\n\t\t<p class='InputfieldFileInfo ui-widget ui-widget-header'>" .
+			"\n\t\t\t<span class='ui-icon ui-icon-arrowthick-2-n-s'></span>" .
+			"\n\t\t\t<span class='InputfieldFileName'>{$pagefile->basename}</span> " .
+			"\n\t\t\t<span class='InputfieldFileStats'>&bull; {$pagefile->filesizeStr} &bull; {$pagefile->width}x{$pagefile->height}</span> " .
+			"\n\t\t\t<label class='InputfieldFileDelete'><input type='checkbox' name='delete_$id' value='1' /><span class='ui-icon ui-icon-trash'>Delete</span></label>" .
+			"\n\t\t\t<a class='InputfieldFileMove InputfieldFileMoveBottom' href='#'><span class='ui-icon ui-icon-arrowthickstop-1-s'></span></a> " .
+			"\n\t\t\t<a class='InputfieldFileMove InputfieldFileMoveTop' href='#'><span class='ui-icon ui-icon-arrowthickstop-1-n'></span></a> " .
+			"\n\t\t</p>" .
+			"\n\t\t<p class='InputfieldFileData ui-widget ui-widget-content'>" .
+			"\n\t\t\t<a class='InputfieldFileLink' target='_blank' href='{$pagefile->url}'><img src='{$thumb->url}' alt='{$pagefile->basename}' /></a>" .
+			"\n\t\t\t<span class='FocusPointImageInfo'>" . $this->_('Click on the image to select the most important part.') . "</span>" .
+			"\n\t\t\t" . $this->renderItemDescriptionField($pagefile, $id, $n) .
+			"\n\t\t\t" . $this->renderItemFocusPointXField($pagefile, $id, $n) .
+			"\n\t\t\t" . $this->renderItemFocusPointYField($pagefile, $id, $n) .
+			"\n\t\t\t<input class='InputfieldFileSort' type='text' name='sort_$id' value='$n' />" .
+			"\n\t\t</p>";
+
+		return $out;
+	}
+
+	protected function renderItemFocusPointXField(Pagefile $pagefile, $id, $n) {
+
+		$focus_point_x = (int)$pagefile->focus_point_x;
+		$out = "<input class='InputfieldFocusPointImageX' type='text' name='focus_point_x_$id' id='focus_point_x_$id' value='$focus_point_x' />";
+		return $out;
+	}
+
+	protected function renderItemFocusPointYField(Pagefile $pagefile, $id, $n) {
+
+		$focus_point_y = (int)$pagefile->focus_point_y;
+		$out = "<input class='InputfieldFocusPointImageY' type='text' name='focus_point_y_$id' id='focus_point_y_$id' value='$focus_point_y' />";
+		return $out;
+	}
+
+	protected function ___processInputFile(WireInputData $input, Pagefile $pagefile, $n) {
+
+		$changed = parent::___processInputFile($input, $pagefile, $n);
+
+		$id = $this->name . '_' . $pagefile->hash;
+
+		foreach (array('focus_point_x', 'focus_point_y') as $key) {
+
+			if (isset($input[$key . '_' . $id])) {
+
+				$value = trim($input[$key . '_' . $id]);
+
+				if ($value != $pagefile->$key) {
+					$pagefile->$key = $value;
+					$changed = true;
+				}
+			}
+		}
+
+		return $changed;
+	}
+
+	public function ___getConfigInputfields() {
+
+		$inputfields = parent::___getConfigInputfields();
+
+		$fieldset = $this->modules->get('InputfieldFieldset');
+		$fieldset->label = $this->_('Default Focus Point');
+		$fieldset->collapsed = $this->defaultFocusPointX != 50 || $this->defaultFocusPointY != 50 ? Inputfield::collapsedNo : Inputfield::collapsedYes;
+		$fieldset->description = $this->_("Optionally enter the default focus point of uploaded images.");
+
+		$field = $this->modules->get('InputfieldInteger');
+		$field->attr('name', 'defaultFocusPointX');
+		$field->attr('min', 0);
+		$field->attr('max', 100);
+		$field->attr('value', $this->defaultFocusPointX);
+		$field->label = $this->_('Default x-axis percentage');
+		$field->description = $this->_('Enter the value in percentages (0-100) or use 50 for default.');
+		$fieldset->add($field);
+
+		$field = $this->modules->get('InputfieldInteger');
+		$field->attr('name', 'defaultFocusPointY');
+		$field->attr('min', 0);
+		$field->attr('max', 100);
+		$field->attr('value', $this->defaultFocusPointY);
+		$field->label = $this->_('Default y-axis percentage');
+		$field->description = $this->_('Enter the value in percentages (0-100) or use 50 for default.');
+		$fieldset->add($field);
+
+		$inputfields->add($fieldset);
+
+		return $inputfields;
+	}
+}

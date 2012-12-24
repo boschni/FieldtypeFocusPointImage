@@ -1,0 +1,145 @@
+<?php
+
+/**
+ * ProcessWire Image Fieldtype With Focus Point
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2012 by Niek Bosch
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.demediafabriek.nl
+ *
+ */
+class FieldtypeFocusPointImage extends FieldtypeImage {
+
+	public static function getModuleInfo() {
+
+		return array(
+			'title' => 'Images with focus point',
+			'version' => 100,
+			'summary' => 'Field that stores one or more GIF, JPG, or PNG images with a focus point',
+			'installs' => 'InputfieldFocusPointImage'
+		);
+	}
+
+	public function init() {
+
+		$this->addHook('Pageimage::sizeWithFocusPointCropping', $this, 'sizeWithFocusPointCropping');
+		$this->defaultInputfieldClass = 'InputfieldFocusPointImage';
+	}
+
+	public function sizeWithFocusPointCropping(HookEvent $event) {
+
+		$pageimage = $event->object;
+		$width = $event->arguments[0];
+		$height = $event->arguments[1];
+		$options = $event->arguments[2];
+
+		if ( ! is_array($options)) {
+			if (is_string($options)) {
+				$options = array();
+			} else if(is_int($options)) {
+				$options = array('quality' => $options);
+			} else if(is_bool($options)) {
+				$options = array('upscaling' => $options);
+			}
+		}
+
+		$options['cropping'] = $pageimage->focus_point_x . '%,' . $pageimage->focus_point_y . '%';
+
+		$event->return = $pageimage->size($width, $height, $options);
+
+		return true;
+	}
+
+	/**
+	 * Return the DB schema used by this field's table
+	 *
+	 */
+	public function getDatabaseSchema(Field $field) {
+
+		$schema = parent::getDatabaseSchema($field);
+		$schema['focus_point_x'] = 'tinyint NOT NULL';
+		$schema['focus_point_y'] = 'tinyint NOT NULL';
+		return $schema;
+	}
+
+	/**
+	 * Perform output formatting on the value delivered to the API
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+
+		$value = parent::___formatValue($page, $field, $value);
+
+		if ( ! $value instanceof Pagefiles) {
+			return $value;
+		}
+
+		if ($field->entityEncode) {
+			foreach ($value as $val) {
+				$val->set('focus_point_x', (int)$val->focus_point_x);
+				$val->set('focus_point_y', (int)$val->focus_point_y);
+			}
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array $value
+	 * @return string|int|array|object $value
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+
+		$pagefiles = parent::___wakeupValue($page, $field, $value);
+
+		foreach ($pagefiles as $pagefile) {
+
+			foreach ($value as $val) {
+
+				if ($val['data'] !== $pagefile->basename) {
+					continue;
+				}
+
+				$pagefile->set('focus_point_x', (int)$val['focus_point_x']);
+				$pagefile->set('focus_point_y', (int)$val['focus_point_y']);
+			}
+		}
+
+		$pagefiles->resetTrackChanges(true);
+
+		return $pagefiles;
+	}
+
+	/**
+	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array|object $value
+	 * @return string|int
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+
+		$sleepValue = parent::___sleepValue($page, $field, $value);
+
+		if ( ! $value instanceof Pagefiles) {
+			return $sleepValue;
+		}
+
+		for ($i = 0, $n = count($sleepValue); $i < $n; $i++) {
+			$pagefile = $value->eq($i);
+			$sleepValue[$i]['focus_point_x'] = round(min(100, max(0, (int)$pagefile->focus_point_x)));
+			$sleepValue[$i]['focus_point_y'] = round(min(100, max(0, (int)$pagefile->focus_point_y)));
+		}
+
+		return $sleepValue;
+	}
+}

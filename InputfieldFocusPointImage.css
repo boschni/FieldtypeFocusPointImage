@@ -1,0 +1,21 @@
+.FocusPointImageHandle {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 101;
+	margin: -20px;
+	padding: 0;
+	width: 40px;
+	height: 40px;
+	background: url(handle.png);
+	cursor: move;
+}
+
+.FocusPointImageInfo {
+	display: inline-block;
+	margin-bottom: 1em;
+	font-size: 11px;
+	cursor: default;
+	*display: inline;
+	*zoom: 1;
+}
